@@ -1,8 +1,8 @@
 // Define motor control pins
 const int IN1 = 8;
 const int IN2 = 9;
-const int IN3 = 8;
-const int IN4 = 9;
+const int IN3 = 4;
+const int IN4 = 27;
 
 void setup() {
   // Set all motor control pins to output
