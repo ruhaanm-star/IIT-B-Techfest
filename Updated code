@@ -1,0 +1,130 @@
+// Line follower robot with shortest route finding (mapping and pathfinding)
+
+// IR sensor pins (adjust as needed)
+const int IR_PINS[8] = {4, 2, 34, 35, 32, 33, 25, 26}; // Example pin numbers
+
+// Motor control pins
+#define MOTOR_LEFT_1 12
+#define MOTOR_LEFT_2 13
+#define MOTOR_RIGHT_1 14
+#define MOTOR_RIGHT_2 27
+
+// Variables for mapping and pathfinding
+int junctionCount = 0; // Number of junctions encountered
+int currentPath[1000];  // Stack to store the current path (DFS)
+int pathIndex = 0;     // Index for the current path stack
+bool endpointReached = false;
+
+void setup() {
+  for (int i = 0; i < 8; i++) pinMode(IR_PINS[i], INPUT);
+  pinMode(MOTOR_LEFT_1, OUTPUT);
+  pinMode(MOTOR_LEFT_2, OUTPUT);
+  pinMode(MOTOR_RIGHT_1, OUTPUT);
+  pinMode(MOTOR_RIGHT_2, OUTPUT);
+}
+
+void setMotors(int lf, int lb, int rf, int rb) {
+  digitalWrite(MOTOR_LEFT_1, lf);
+  digitalWrite(MOTOR_LEFT_2, lb);
+  digitalWrite(MOTOR_RIGHT_1, rf);
+  digitalWrite(MOTOR_RIGHT_2, rb);
+}
+
+void goForward() { setMotors(HIGH, LOW, HIGH, LOW); }
+void turnLeft() { setMotors(LOW, HIGH, HIGH, LOW); }
+void turnRight() { setMotors(HIGH, LOW, LOW, HIGH); }
+void stopMotors() { setMotors(LOW, LOW, LOW, LOW); }
+void reverse() { setMotors(LOW, HIGH, LOW, HIGH); }
+
+bool allSensorsDetectBlack() {
+  for (int i = 0; i < 8; i++)
+    if (digitalRead(IR_PINS[i]) == HIGH) // HIGH for white line, LOW for black
+      return false;
+  return true;
+}
+
+bool anySensorDetectsWhite() {
+  for (int i = 0; i < 8; i++)
+    if (digitalRead(IR_PINS[i]) == HIGH) // HIGH for white line
+      return true;
+  return false;
+}
+
+bool allSensorsDetectWhite() {
+  for (int i = 0; i < 8; i++)
+    if (digitalRead(IR_PINS[i]) == LOW) // LOW for black, HIGH for white
+      return false;
+  return true;
+}
+
+void turnAround() {
+  // Spin in place (adjust timing for your robot)
+  setMotors(HIGH, LOW, LOW, HIGH);
+  delay(700); // approx 180 degrees, tune this value
+  stopMotors();
+}
+
+void handleJunction() {
+  // Handle junctions by deciding which path to take
+  junctionCount++;
+  currentPath[pathIndex++] = junctionCount; // Push junction to path stack
+
+  // Example: Always turn left first at a junction
+  turnLeft();
+  delay(500); // Adjust timing for your robot
+  stopMotors();
+}
+
+void backtrack() {
+  // Backtrack to the previous junction
+  if (pathIndex > 0) {
+    pathIndex--; // Pop the last junction from the stack
+    turnAround();
+    delay(700); // Adjust timing for your robot
+    stopMotors();
+  }
+}
+
+void loop() {
+  // Read sensors
+  int sensors[8];
+  for (int i = 0; i < 8; i++) sensors[i] = digitalRead(IR_PINS[i]);
+
+  // Check for endpoint (all white)
+  if (allSensorsDetectWhite()) {
+    stopMotors();
+    endpointReached = true; // Set the flag to indicate the endpoint is reached
+    return; // Stop further execution
+  }
+
+  // Dead end or black detection
+  if (allSensorsDetectBlack()) {
+    stopMotors();
+    delay(200);
+    reverse();
+    delay(400); // back up a bit
+    stopMotors();
+    delay(200);
+    if (!anySensorDetectsWhite()) {
+      backtrack(); // Backtrack to the previous junction
+    }
+  } else {
+    // Standard line following logic
+if (sensors[3] == HIGH && sensors[4] == HIGH) {
+      // Move forward if the center sensors detect the line
+      goForward();
+    } else if (sensors[0] == HIGH || sensors[1] == HIGH || sensors[2] == HIGH) {
+      // Turn left if the left sensors detect the line
+      turnLeft();
+    } else if (sensors[5] == HIGH || sensors[6] == HIGH || sensors[7] == HIGH) {
+      // Turn right if the right sensors detect the line
+      turnRight();
+    } else if (sensors[2] == HIGH && sensors[5] == HIGH) {
+      // Handle a junction (both left and right paths detected)
+      handleJunction();
+    } else {
+      // Stop if no valid path is detected
+      stopMotors();
+    }
+  }
+}
