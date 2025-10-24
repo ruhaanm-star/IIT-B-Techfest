@@ -1,57 +1,115 @@
-// Define motor control pins
-const int IN1 = 13;
-const int IN2 = 12;
-const int IN3 = 14;
-const int IN4 = 27;
+
+const int irPins[8] = {4, 2, 34, 35, 32, 33, 25, 26};
+
+// Motor control pins
+const int motorLeftForward = 13;
+const int motorLeftBackward = 12;
+const int motorRightForward = 14;
+const int motorRightBackward = 27;
+
+// Variables to store sensor readings
+int sensorValues[8];
 
 void setup() {
-  // Set all motor control pins to output
-  pinMode(IN1, OUTPUT);
-  pinMode(IN2, OUTPUT);
-  pinMode(IN3, OUTPUT);
-  pinMode(IN4, OUTPUT);
+  // Initialize sensor pins as input
+  for (int i = 0; i < 8; i++) {
+    pinMode(irPins[i], INPUT);
+  }
+
+  // Initialize motor pins as output
+  pinMode(motorLeftForward, OUTPUT);
+  pinMode(motorLeftBackward, OUTPUT);
+  pinMode(motorRightForward, OUTPUT);
+  pinMode(motorRightBackward, OUTPUT);
+
+  Serial.begin(9600);
 }
 
 void loop() {
-  // Move forward
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  delay(2000); // Move forward for 2 seconds
+  // Read all sensor values
+  for (int i = 0; i < 8; i++) {
+    sensorValues[i] = digitalRead(irPins[i]);
+  }
 
-  // Stop
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-  delay(1000);
+  // Debug: print sensor readings
+  for (int i = 0; i < 8; i++) {
+    Serial.print(sensorValues[i]);
+  }
+  Serial.println();
 
-  // Move backward
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-  delay(2000); // Move backward for 2 seconds
+  // Now using: HIGH = on the line, LOW = off the line
+  bool center    = (sensorValues[3] == LOW || sensorValues[4] == LOW);
+  bool leftSide  = (sensorValues[1] == LOW || sensorValues[2] == LOW);
+  bool rightSide = (sensorValues[5] == LOW || sensorValues[6] == LOW );
+  bool leftSharp  = (sensorValues[0] == LOW );
+  bool rightSharp = (sensorValues[7] == LOW);
+  bool junctionLR = (sensorValues[2] == LOW && sensorValues[5] == LOW); // adjacent center sensors see line
 
-  // Stop
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-  delay(1000);
+  // Priority: center -> junction -> right-only -> left-only -> both -> stop/search
+    if (rightSharp) {
+    sharpRight();
+  } else if (leftSharp) {
+    sharpLeft();
+  } 
+    else if (rightSide) {
+    turnRight();
+  } else if (leftSide) {
+    turnLeft();
+  } 
+    else if (center) {
+    moveForward();
+  } else if (junctionLR) {
+    // choose preferred junction behavior; here prefer right
+    turnRight();
+  } else if (leftSide && rightSide) {
+    // both sides see line (ambiguous) — treat as junction; prefer right
+    turnRight();
+  } else {
+    // No sensor sees the line: stop or implement search routine
+    stopMotors();
+  }
 
-    // Right
-  digitalWrite(IN1, HIGH);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, HIGH);
-  digitalWrite(IN4, LOW);
-  delay(2000);
+  delay(50);
+}
 
-    // Left
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
-  delay(2000);
+void moveForward() {
+  digitalWrite(motorLeftForward, HIGH);
+  digitalWrite(motorLeftBackward, LOW);
+  digitalWrite(motorRightForward, HIGH);
+  digitalWrite(motorRightBackward, LOW);
+}
+
+void turnLeft() {
+  digitalWrite(motorLeftForward, LOW);
+  digitalWrite(motorLeftBackward, HIGH);
+  digitalWrite(motorRightForward, HIGH);
+  digitalWrite(motorRightBackward, LOW);
+}
+
+void turnRight() {
+  digitalWrite(motorLeftForward, HIGH);
+  digitalWrite(motorLeftBackward, LOW);
+  digitalWrite(motorRightForward, LOW);
+  digitalWrite(motorRightBackward, HIGH);
+}
+void sharpRight() {
+  moveForward();
+  delay(300);
+  turnRight();
+  delay(300);
+  
+}
+void sharpLeft() {
+  moveForward();
+  delay(300);
+  turnLeft();
+  delay(300);
+  
+}
+
+void stopMotors() {
+  digitalWrite(motorLeftForward, LOW);
+  digitalWrite(motorLeftBackward, LOW);
+  digitalWrite(motorRightForward, LOW);
+  digitalWrite(motorRightBackward, LOW);
 }
